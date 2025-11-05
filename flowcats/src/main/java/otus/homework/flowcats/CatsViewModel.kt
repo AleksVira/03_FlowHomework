@@ -3,12 +3,13 @@ package otus.homework.flowcats
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class Result {
     data class Success(val fact: Fact) : Result()
@@ -24,12 +25,15 @@ class CatsViewModel(
 
     init {
         viewModelScope.launch {
-            catsRepository.listenForCatFacts()
-                .map<Fact, Result> { fact -> Result.Success(fact) }
-                .catch { e -> emit(Result.Error(e)) }
-                .collect { result ->
-                    _catsStateFlow.value = result
-                }
+            withContext(Dispatchers.IO) {
+                catsRepository.listenForCatFacts()
+                    .catch { exception ->
+                        _catsStateFlow.value = Result.Error(exception)
+                    }
+                    .collect { fact ->
+                        _catsStateFlow.value = Result.Success(fact)
+                    }
+            }
         }
     }
 }
